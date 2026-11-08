@@ -130,6 +130,20 @@
     <div class="foot">保存会写入仓库 <code>dyagent/config.json</code>，手机每 10 分钟拉一次；也可以让用户在 App 里点「立即拉取」。</div>
   </div>
 
+  <h3>更新推送（可按机型/多台/全部）</h3>
+  <div class="card">
+    <div class="two">
+      <div class="field"><label>版本号（如 1.4.0）</label><input id="uVer" placeholder="1.4.0" /></div>
+      <div class="field"><label>APK 下载地址</label><input id="uApk" placeholder="https://github.com/.../app.apk" /></div>
+    </div>
+    <div class="field"><label>更新说明（显示在弹窗里）</label><input id="uNotes" /></div>
+    <div class="field"><label>推送给哪些设备 ID（逗号分隔，留空 = 全部设备）</label><input id="uTargets" placeholder="abc123, def456" /></div>
+    <div class="bar" style="margin-top:8px">
+      <button class="primary" id="pushUpdate">发布更新</button>
+      <span class="sub" id="updMsg">手机会在打开 App 时弹窗提示</span>
+    </div>
+  </div>
+
   <h3>设备（<span id="devCount">0</span>）</h3>
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" hidden>仓库里还没有设备文件。手机端：设置 → 作者面板 →「上报设备到 GitHub」。</div>
@@ -222,6 +236,10 @@ function render(){
         <span>位置</span><span>${loc} <span class="sub">${d.satellites>=0?('卫星 '+d.satellites):''}</span></span>
         <span>设备 ID</span><span>${esc(d.device_id)}</span>
       </div>
+      <div class="row" style="margin-top:8px">
+        <button data-log="${esc(d.device_id)}" class="logBtn">查看这台设备的日志</button>
+        <span class="sub">${esc(d.device_id)}</span>
+      </div>
       <details class="apps"><summary>已装应用 ${d.apps_count??(d.apps||[]).length} 个</summary>
         <div class="applist">${apps||'<span class="sub">无数据</span>'}</div></details>
     </div>`;
@@ -230,11 +248,15 @@ function render(){
   $('foot').textContent='每 30 秒自动刷新 · 最后更新 '+new Date().toLocaleTimeString('zh-CN');
 }
 
-async function loadLogs(){
+async function loadLogs(deviceId){
   try{
-    const dir=await api('dyagent/logs');
-    if(!Array.isArray(dir)||!dir.length){ $('logBox').innerHTML=''; return; }
-    const f=await api('dyagent/logs/'+dir[0].name);
+    let name = deviceId ? (deviceId + '.json') : null;
+    if(!name){
+      const dir=await api('dyagent/logs');
+      if(!Array.isArray(dir)||!dir.length){ $('logBox').innerHTML=''; return; }
+      name = dir[0].name;
+    }
+    const f=await api('dyagent/logs/'+name);
     if(!f||!f.content) return;
     const data=JSON.parse(b64dec(f.content));
     const rows=(data.entries||[]).slice(0,40).map(e=>
@@ -317,6 +339,24 @@ $('saveTok').onclick=()=>{
   localStorage.setItem(LSC,JSON.stringify(cfg));
   $('authBar').hidden=true;
   load(); loadCfgFile(); clearInterval(timer); timer=setInterval(load,30000);
+};
+document.addEventListener('click', e=>{
+  const b=e.target.closest('.logBtn');
+  if(b){ loadLogs(b.getAttribute('data-log')); $('logBox').scrollIntoView({behavior:'smooth'}); }
+});
+
+$('pushUpdate').onclick=async()=>{
+  const ver=$('uVer').value.trim(), apk=$('uApk').value.trim(), notes=$('uNotes').value.trim();
+  const targets=$('uTargets').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!ver||!apk){ $('updMsg').textContent='版本号和下载地址都要填'; return; }
+  try{
+    const cur=await api('dyagent/config.json');
+    const cfg=cur&&cur.content? JSON.parse(b64dec(cur.content)) : {};
+    cfg.version=(Number(cfg.version)||0)+1;
+    cfg.latestVersion=ver; cfg.apkUrl=apk; cfg.releaseNotes=notes; cfg.updateTargets=targets;
+    await putFile('dyagent/config.json', JSON.stringify(cfg,null,2), 'dyagent: 发布 '+ver);
+    $('updMsg').textContent='已发布 '+ver+(targets.length?('，仅推给 '+targets.length+' 台'):'，推给全部设备');
+  }catch(err){ $('updMsg').textContent=err.message; }
 };
 $('refresh').onclick=load;
 $('q').oninput=render;
