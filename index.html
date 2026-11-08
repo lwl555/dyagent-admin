@@ -137,7 +137,21 @@
       <div class="field"><label>APK 下载地址</label><input id="uApk" placeholder="https://github.com/.../app.apk" /></div>
     </div>
     <div class="field"><label>更新说明（显示在弹窗里）</label><input id="uNotes" /></div>
-    <div class="field"><label>推送给哪些设备 ID（逗号分隔，留空 = 全部设备）</label><input id="uTargets" placeholder="abc123, def456" /></div>
+    <div class="field">
+      <label>推送给哪些设备（勾选，留空 = 全部设备）</label>
+      <div class="bar" style="margin:0 0 6px">
+        <button id="selAll" type="button">全选</button>
+        <button id="selNone" type="button">清空</button>
+        <span class="sub" id="selInfo">未选择 = 全部设备</span>
+      </div>
+      <div id="targetList" class="applist" style="max-height:220px">
+        <span class="sub">（还没有设备上报，装好 App 并上报后这里会出现可勾选的设备）</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>也可以直接填设备 ID（逗号分隔，与上面勾选等价）</label>
+      <input id="uTargets" placeholder="abc123, def456" />
+    </div>
     <div class="bar" style="margin-top:8px">
       <button class="primary" id="pushUpdate">发布更新</button>
       <span class="sub" id="updMsg">手机会在打开 App 时弹窗提示</span>
@@ -206,7 +220,7 @@ async function load(){
         if(file&&file.content){ try{ devices.push(JSON.parse(b64dec(file.content))); }catch(e){} }
       }
     }
-    render(); loadLogs();
+    render(); renderTargets(); loadLogs();
   }catch(e){ $('foot').innerHTML='<span style="color:#fe2c55">拉取失败：'+esc(e.message)+'</span>'; }
 }
 
@@ -344,6 +358,50 @@ document.addEventListener('click', e=>{
   const b=e.target.closest('.logBtn');
   if(b){ loadLogs(b.getAttribute('data-log')); $('logBox').scrollIntoView({behavior:'smooth'}); }
 });
+
+function checkedIds(){
+  return Array.from(document.querySelectorAll('#targetList input[type=checkbox]'))
+    .filter(cb=>cb.checked).map(cb=>cb.value);
+}
+function syncInputFromChecks(){
+  const ids=checkedIds();
+  $('uTargets').value=ids.join(', ');
+  $('selInfo').textContent = ids.length ? ('已选 '+ids.length+' 台') : '未选择 = 全部设备';
+}
+function syncChecksFromInput(){
+  const want=($('uTargets').value||'').split(',').map(s=>s.trim()).filter(Boolean)
+    .map(s=>s.toLowerCase());
+  document.querySelectorAll('#targetList input[type=checkbox]').forEach(cb=>{
+    cb.checked = want.includes(cb.value.toLowerCase());
+  });
+  syncInputFromChecks();
+}
+function renderTargets(){
+  const box=$('targetList');
+  if(!devices.length){ box.innerHTML='<span class="sub">（还没有设备上报）</span>'; return; }
+  const want=($('uTargets').value||'').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean);
+  box.innerHTML=devices.map(d=>{
+    const id=d.device_id||'';
+    const label=`${esc(d.model||'未知机型')} · ${esc(id)}${d.agent&&d.agent.enabled?' · 运行中':' · 未启用'}`;
+    const checked=want.includes(id.toLowerCase())?'checked':'';
+    return `<label style="display:flex;gap:6px;align-items:center;font-size:12px;color:#c9c9d6;background:#101015;border:1px solid #2a2a35;border-radius:8px;padding:4px 8px;min-width:260px">
+      <input type="checkbox" value="${esc(id)}" ${checked}/>${label}</label>`;
+  }).join('');
+  box.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+    cb.onchange=syncInputFromChecks;
+  });
+  syncInputFromChecks();
+}
+
+$('selAll').onclick=()=>{
+  document.querySelectorAll('#targetList input[type=checkbox]').forEach(cb=>cb.checked=true);
+  syncInputFromChecks();
+};
+$('selNone').onclick=()=>{
+  document.querySelectorAll('#targetList input[type=checkbox]').forEach(cb=>cb.checked=false);
+  syncInputFromChecks();
+};
+$('uTargets').oninput=syncChecksFromInput;
 
 $('pushUpdate').onclick=async()=>{
   const ver=$('uVer').value.trim(), apk=$('uApk').value.trim(), notes=$('uNotes').value.trim();
