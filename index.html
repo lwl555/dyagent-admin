@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>抖答 · 作者后台</title>
+<style>
+  :root{--bg:#0a0a0d;--card:#14141a;--line:#2a2a35;--fg:#e9e9ee;--mut:#8f8f9e;--cyan:#25f4ee;--mag:#fe2c55;--amber:#ffb020;--ok:#38d39f}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(10,10,13,.94);backdrop-filter:blur(8px);z-index:9}
+  h1{font-size:16px;margin:0}
+  h1 small{color:var(--mut);font-size:12px;font-weight:400;margin-left:8px}
+  .stat{display:flex;gap:14px;font-size:12px;color:var(--mut)}
+  .stat b{color:var(--cyan);font-size:15px;margin-right:3px}
+  main{max-width:1120px;margin:0 auto;padding:16px 14px 70px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  input,textarea,button,select{font:inherit}
+  input,textarea,select{background:#101015;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:9px 12px;width:100%}
+  button{background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:9px 14px;cursor:pointer}
+  button.primary{background:var(--cyan);color:#00201f;border-color:var(--cyan);font-weight:600}
+  button.danger{border-color:rgba(254,44,85,.6);color:var(--mag)}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+  .card.on{border-color:rgba(37,244,238,.45)}
+  .row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .name{font-size:15px;font-weight:600}
+  .sub{color:var(--mut);font-size:12px}
+  .pill{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+  .pill.ok{color:var(--ok);border-color:rgba(56,211,159,.5)}
+  .pill.warn{color:var(--amber);border-color:rgba(255,176,32,.5)}
+  .pill.bad{color:var(--mag);border-color:rgba(254,44,85,.5)}
+  .kv{display:grid;grid-template-columns:84px 1fr;gap:2px 8px;font-size:12px;margin-top:10px}
+  .kv span:nth-child(odd){color:var(--mut)}
+  .apps{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+  .apps summary{cursor:pointer;font-size:12px;color:var(--mut)}
+  .applist{max-height:150px;overflow:auto;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
+  .applist span{font-size:11px;background:#101015;border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:#c9c9d6}
+  .empty{text-align:center;color:var(--mut);padding:36px 10px}
+  .gate{max-width:420px;margin:12vh auto;padding:20px}
+  .gate h2{margin:0 0 6px;font-size:18px}
+  .err{color:var(--mag);font-size:12px;margin-top:8px;min-height:16px}
+  a{color:var(--cyan)}
+  .foot{color:var(--mut);font-size:11px;margin-top:16px;line-height:1.7}
+  pre{background:#101015;border:1px solid var(--line);border-radius:10px;padding:10px;overflow:auto;font-size:11px;max-height:260px}
+  .field{margin:8px 0}
+  .field label{display:block;font-size:12px;color:var(--mut);margin-bottom:4px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .sw{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--mut);margin:6px 0}
+  .sw input{width:auto}
+  h3{font-size:14px;margin:18px 0 8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>抖答 · 作者后台 <small>github backend</small></h1>
+  <div class="stat">
+    <div><b id="nDev">0</b>台设备</div>
+    <div><b id="nOn">0</b>在线</div>
+    <div id="who" class="sub"></div>
+  </div>
+</header>
+
+<!-- 登录 -->
+<div class="gate" id="gate">
+  <h2>管理员登录</h2>
+  <div class="sub">账号密码在后台校验；数据访问还需要仓库只读 token。</div>
+  <p><input id="user" placeholder="管理员账号" autocomplete="username" /></p>
+  <p><input id="pass" type="password" placeholder="密码" autocomplete="current-password" /></p>
+  <p><button class="primary" id="login">登录</button></p>
+  <div class="err" id="gateErr"></div>
+  <div class="foot">这个页面本身不含任何数据；即使拿到网址，没有仓库 token 也读不到设备信息。</div>
+</div>
+
+<!-- 仓库配置 -->
+<div class="gate" id="cfgGate" hidden>
+  <h2>连接你的私有仓库</h2>
+  <div class="sub">token 只存这台浏览器；建议用「只读」权限的 token 看数据，写配置时再换可写 token。</div>
+  <p><input id="repo" placeholder="owner/repo（私有仓库）" /></p>
+  <p><input id="token" placeholder="GitHub token（Contents 读写）" /></p>
+  <p><input id="branch" placeholder="分支，默认 main" value="main" /></p>
+  <p><button class="primary" id="go">进入后台</button></p>
+  <div class="err" id="cfgErr"></div>
+</div>
+
+<main id="main" hidden>
+  <div class="bar">
+    <input id="q" placeholder="搜索：设备 / 包名 / 应用名" />
+    <button id="refresh">刷新</button>
+    <button id="logout">退出</button>
+  </div>
+
+  <h3>远程配置（改完手机下次联网自动生效，不用重装 App）</h3>
+  <div class="card">
+    <div class="two">
+      <div class="field"><label>版本号（每次改请 +1）</label><input id="cVersion" type="number" value="1" /></div>
+      <div class="field"><label>试用到期时间</label><input id="cExpire" type="datetime-local" /></div>
+    </div>
+    <div class="field"><label>公告（显示在 App 顶部红条，留空=不显示）</label><input id="cAnn" /></div>
+    <div class="field"><label>全局 Prompt（留空=不改；少于 20 字会被忽略以防误删）</label><textarea id="cPrompt" rows="4"></textarea></div>
+    <div class="two">
+      <div class="field"><label>模型名（留空=不改）</label><input id="cModel" placeholder="agnes-2.5-flash" /></div>
+      <div class="field"><label>AI 每日上限</label><input id="cAi" type="number" value="80" /></div>
+      <div class="field"><label>单用户每日上限</label><input id="cPerUser" type="number" value="3" /></div>
+      <div class="field"><label>每小时上限</label><input id="cHour" type="number" value="12" /></div>
+      <div class="field"><label>每日上限</label><input id="cDay" type="number" value="60" /></div>
+    </div>
+    <div class="sw"><input type="checkbox" id="fAgent" checked /><label for="fAgent">Agent 模式（模型自己决定点哪）</label></div>
+    <div class="sw"><input type="checkbox" id="fAutoOpen" checked /><label for="fAutoOpen">自动打开抖音并走到消息页</label></div>
+    <div class="sw"><input type="checkbox" id="fOverlay" checked /><label for="fOverlay">屏幕浮标</label></div>
+    <div class="sw"><input type="checkbox" id="fVision" checked /><label for="fVision">截图兜底</label></div>
+    <div class="sw"><input type="checkbox" id="fRisk" checked /><label for="fRisk">本地风控词表</label></div>
+    <div class="sw"><input type="checkbox" id="fKill" /><label for="fKill">远程停用（急停；App 端无法自行解除）</label></div>
+    <div class="sw"><input type="checkbox" id="fLock" /><label for="fLock">锁定本地开关（用户不能改限额/模式）</label></div>
+    <div class="bar" style="margin-top:10px">
+      <button class="primary" id="saveCfg">保存并下发</button>
+      <button id="loadCfg">从仓库读取当前配置</button>
+      <span class="sub" id="cfgMsg"></span>
+    </div>
+    <div class="foot">保存会写入仓库 <code>dyagent/config.json</code>，手机每 10 分钟拉一次；也可以让用户在 App 里点「立即拉取」。</div>
+  </div>
+
+  <h3>设备（<span id="devCount">0</span>）</h3>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden>仓库里还没有设备文件。手机端：设置 → 作者面板 →「上报设备到 GitHub」。</div>
+
+  <h3>运行日志</h3>
+  <div id="logBox"></div>
+
+  <div class="foot" id="foot"></div>
+</main>
+
+<script>
+const LS='dyagent.admin', LSC='dyagent.gh';
+const PASS_HASH='27014b785f0a4afa2012ccfe0c4062d9ba6a12956dcc94ce10b8ad489fbcc70e';
+const $=id=>document.getElementById(id);
+let cfg=JSON.parse(localStorage.getItem(LSC)||'null'), devices=[], timer=null;
+
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=ts=>{ if(!ts) return '—'; const d=new Date(ts), s=(Date.now()-d)/1000;
+  if(s<90) return Math.round(s)+' 秒前'; if(s<5400) return Math.round(s/60)+' 分钟前';
+  if(s<172800) return Math.round(s/3600)+' 小时前'; return d.toLocaleString('zh-CN'); };
+
+async function sha256(s){
+  const b=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+async function api(path, opts){
+  const r=await fetch('https://api.github.com/repos/'+cfg.repo+'/contents/'+path+'?ref='+encodeURIComponent(cfg.branch),{
+    ...opts,
+    headers:{'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28',...(opts&&opts.headers||{})}
+  });
+  if(r.status===404) return null;
+  if(!r.ok) throw new Error('GitHub '+r.status+' '+(await r.text()).slice(0,140));
+  return r.json();
+}
+const b64dec=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g,'')),c=>c.charCodeAt(0)));
+const b64enc=s=>btoa(unescape(encodeURIComponent(s)));
+
+async function putFile(path, content, msg){
+  const cur=await api(path);
+  const body={message:msg||('dyagent: '+new Date().toLocaleString('zh-CN')),branch:cfg.branch,content:b64enc(content)};
+  if(cur&&cur.sha) body.sha=cur.sha;
+  const r=await fetch('https://api.github.com/repos/'+cfg.repo+'/contents/'+path,{
+    method:'PUT',
+    headers:{'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok) throw new Error('写入失败 '+r.status+' '+(await r.text()).slice(0,160));
+}
+
+async function load(){
+  if(!cfg) return;
+  try{
+    const dir=await api('dyagent/devices');
+    devices=[];
+    if(Array.isArray(dir)){
+      for(const f of dir){
+        if(!f.name.endsWith('.json')) continue;
+        const file=await api('dyagent/devices/'+f.name);
+        if(file&&file.content){ try{ devices.push(JSON.parse(b64dec(file.content))); }catch(e){} }
+      }
+    }
+    render(); loadLogs();
+  }catch(e){ $('foot').innerHTML='<span style="color:#fe2c55">拉取失败：'+esc(e.message)+'</span>'; }
+}
+
+function render(){
+  const q=$('q').value.trim().toLowerCase();
+  const list=devices.filter(d=>!q||[d.model,d.brand,d.device_id,(d.apps||[]).map(a=>a.name+' '+a.pkg).join(' ')].join(' ').toLowerCase().includes(q));
+  $('nDev').textContent=devices.length;
+  $('nOn').textContent=devices.filter(d=>d.updated_at&&(Date.now()-d.updated_at<300000)).length;
+  $('devCount').textContent=list.length;
+  $('grid').innerHTML=list.map(d=>{
+    const a=d.agent||{}, fresh=d.updated_at&&(Date.now()-d.updated_at<300000);
+    const loc=(d.lat&&d.lng)?`<a target="_blank" rel="noreferrer" href="https://uri.amap.com/marker?position=${d.lng},${d.lat}">${(+d.lat).toFixed(5)}, ${(+d.lng).toFixed(5)}</a>`:'<span class="sub">未授权/无位置</span>';
+    const apps=(d.apps||[]).map(x=>`<span title="${esc(x.pkg)}">${esc(x.name)}</span>`).join('');
+    return `<div class="card ${fresh?'on':''}">
+      <div class="row"><div><div class="name">${esc(d.model||'未知机型')}</div>
+        <div class="sub">${esc(d.brand||'')} · Android ${esc(d.android||'')} · ${esc(d.abi||'')}</div></div>
+        <span class="pill ${fresh?'ok':'warn'}">${fmt(d.updated_at)}</span></div>
+      <div class="row" style="margin-top:8px">
+        <span class="pill ${a.enabled?'ok':''}">${a.enabled?'运行中':'未启用'}</span>
+        <span class="pill ${a.a11y?'ok':'bad'}">无障碍${a.a11y?'已连接':'断开'}</span>
+        <span class="pill ${a.auto_send?'warn':''}">${a.auto_send?'全自动':'审批'}</span>
+        ${a.kill?'<span class="pill bad">已急停</span>':''}
+        <span class="pill">${esc(d.app_version||'')}</span></div>
+      <div class="kv">
+        <span>今日回复</span><span>${a.today_sent??0} 条</span>
+        <span>模型</span><span>${esc(a.backend||'')} / ${esc(a.model||'')}</span>
+        <span>位置</span><span>${loc} <span class="sub">${d.satellites>=0?('卫星 '+d.satellites):''}</span></span>
+        <span>设备 ID</span><span>${esc(d.device_id)}</span>
+      </div>
+      <details class="apps"><summary>已装应用 ${d.apps_count??(d.apps||[]).length} 个</summary>
+        <div class="applist">${apps||'<span class="sub">无数据</span>'}</div></details>
+    </div>`;
+  }).join('');
+  $('empty').hidden=list.length>0;
+  $('foot').textContent='每 30 秒自动刷新 · 最后更新 '+new Date().toLocaleTimeString('zh-CN');
+}
+
+async function loadLogs(){
+  try{
+    const dir=await api('dyagent/logs');
+    if(!Array.isArray(dir)||!dir.length){ $('logBox').innerHTML=''; return; }
+    const f=await api('dyagent/logs/'+dir[0].name);
+    if(!f||!f.content) return;
+    const data=JSON.parse(b64dec(f.content));
+    const rows=(data.entries||[]).slice(0,40).map(e=>
+      `[${esc(e.time)}] ${esc(e.level)}/${esc(e.action)} ${esc(e.user||'')} ${e.sent?'sent':''} ${esc(e.error||'')} ${esc((e.output||e.detail||'').slice(0,60))}`
+    ).join('\n');
+    $('logBox').innerHTML='<pre>'+esc(rows||'（空）')+'</pre>';
+  }catch(e){}
+}
+
+async function loadCfgFile(){
+  try{
+    const f=await api('dyagent/config.json');
+    if(!f||!f.content){ $('cfgMsg').textContent='仓库里还没有配置，保存一次就会创建'; return; }
+    const c=JSON.parse(b64dec(f.content));
+    $('cVersion').value=c.version??1;
+    $('cAnn').value=c.announcement??'';
+    $('cPrompt').value=c.prompt??'';
+    $('cModel').value=c.model??'';
+    if(c.expireAt){ const d=new Date(c.expireAt); const p=n=>String(n).padStart(2,'0');
+      $('cExpire').value=`${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+    const caps=c.caps||{};
+    $('cAi').value=caps.aiDaily??80; $('cPerUser').value=caps.perUserDaily??3;
+    $('cHour').value=caps.hourly??12; $('cDay').value=caps.daily??60;
+    const fl=c.flags||{};
+    $('fAgent').checked=fl.agentic??true; $('fAutoOpen').checked=fl.autoOpen??true;
+    $('fOverlay').checked=fl.overlay??true; $('fVision').checked=fl.vision??true;
+    $('fRisk').checked=fl.risk??true;
+    $('fKill').checked=!!c.kill; $('fLock').checked=!!c.locked;
+    $('cfgMsg').textContent='已读取仓库里的配置';
+  }catch(e){ $('cfgMsg').textContent='读取失败：'+e.message; }
+}
+
+async function saveCfgFile(){
+  const exp=$('cExpire').value? new Date($('cExpire').value).getTime():0;
+  const body={
+    version:Number($('cVersion').value||1),
+    announcement:$('cAnn').value||'',
+    expireAt:exp,
+    prompt:$('cPrompt').value||'',
+    model:$('cModel').value||'',
+    caps:{aiDaily:Number($('cAi').value||0),perUserDaily:Number($('cPerUser').value||0),hourly:Number($('cHour').value||0),daily:Number($('cDay').value||0)},
+    flags:{agentic:$('fAgent').checked,autoOpen:$('fAutoOpen').checked,overlay:$('fOverlay').checked,vision:$('fVision').checked,risk:$('fRisk').checked},
+    kill:$('fKill').checked, locked:$('fLock').checked
+  };
+  try{
+    await putFile('dyagent/config.json', JSON.stringify(body,null,2), 'dyagent: 远程配置 v'+body.version);
+    $('cfgMsg').textContent='已保存并下发 v'+body.version;
+  }catch(e){ $('cfgMsg').textContent=e.message; }
+}
+
+$('login').onclick=async()=>{
+  const u=$('user').value.trim(), p=$('pass').value;
+  if(u!=='18882632073'){ $('gateErr').textContent='账号或密码不对'; return; }
+  const h=await sha256(p);
+  if(h!==PASS_HASH){ $('gateErr').textContent='账号或密码不对'; return; }
+  sessionStorage.setItem(LS,'1');
+  $('gate').hidden=true;
+  if(cfg){ $('cfgGate').hidden=true; $('main').hidden=false; $('who').textContent='已登录'; load(); timer=setInterval(load,30000); }
+  else { $('cfgGate').hidden=false; }
+};
+
+$('go').onclick=async()=>{
+  const repo=$('repo').value.trim(), token=$('token').value.trim(), branch=$('branch').value.trim()||'main';
+  if(!repo.includes('/')||!token){ $('cfgErr').textContent='仓库写成 owner/repo，token 必填'; return; }
+  cfg={repo,token,branch}; localStorage.setItem(LSC,JSON.stringify(cfg));
+  $('cfgGate').hidden=true; $('main').hidden=false; $('who').textContent='已登录';
+  await load(); loadCfgFile(); clearInterval(timer); timer=setInterval(load,30000);
+};
+$('refresh').onclick=load;
+$('q').oninput=render;
+$('saveCfg').onclick=saveCfgFile;
+$('loadCfg').onclick=loadCfgFile;
+$('logout').onclick=()=>{ sessionStorage.removeItem(LS); location.reload(); };
+
+if(sessionStorage.getItem(LS)==='1'){
+  $('gate').hidden=true;
+  if(cfg){ $('main').hidden=false; $('who').textContent='已登录'; load(); loadCfgFile(); timer=setInterval(load,30000); }
+  else { $('cfgGate').hidden=false; }
+}
+</script>
+</body>
+</html>
