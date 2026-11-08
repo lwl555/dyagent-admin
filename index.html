@@ -120,6 +120,7 @@
     <div class="sw"><input type="checkbox" id="fOverlay" checked /><label for="fOverlay">屏幕浮标</label></div>
     <div class="sw"><input type="checkbox" id="fVision" checked /><label for="fVision">截图兜底</label></div>
     <div class="sw"><input type="checkbox" id="fRisk" checked /><label for="fRisk">本地风控词表</label></div>
+    <div class="sw"><input type="checkbox" id="fAutoSend" checked /><label for="fAutoSend">自动发送（关掉=只生成不发送，全部进审批）</label></div>
     <div class="sw"><input type="checkbox" id="fKill" /><label for="fKill">远程停用（急停；App 端无法自行解除）</label></div>
     <div class="sw"><input type="checkbox" id="fLock" /><label for="fLock">锁定本地开关（用户不能改限额/模式）</label></div>
     <div class="bar" style="margin-top:10px">
@@ -249,6 +250,8 @@ function render(){
         <span>模型</span><span>${esc(a.backend||'')} / ${esc(a.model||'')}</span>
         <span>位置</span><span>${loc} <span class="sub">${d.satellites>=0?('卫星 '+d.satellites):''}</span></span>
         <span>设备 ID</span><span>${esc(d.device_id)}</span>
+        <span>待审批</span><span>${a.pending??0} 条</span>
+        <span>日志通道</span><span>${esc(a.log_status||'未上报')}</span>
       </div>
       <div class="row" style="margin-top:8px">
         <button data-log="${esc(d.device_id)}" class="logBtn">查看这台设备的日志</button>
@@ -298,6 +301,7 @@ async function loadCfgFile(){
     $('fAgent').checked=fl.agentic??true; $('fAutoOpen').checked=fl.autoOpen??true;
     $('fOverlay').checked=fl.overlay??true; $('fVision').checked=fl.vision??true;
     $('fRisk').checked=fl.risk??true;
+    $('fAutoSend').checked=fl.autoSend??true;
     $('fKill').checked=!!c.kill; $('fLock').checked=!!c.locked;
     $('cfgMsg').textContent='已读取仓库里的配置';
   }catch(e){ $('cfgMsg').textContent='读取失败：'+e.message; }
@@ -312,7 +316,7 @@ async function saveCfgFile(){
     prompt:$('cPrompt').value||'',
     model:$('cModel').value||'',
     caps:{aiDaily:Number($('cAi').value||0),perUserDaily:Number($('cPerUser').value||0),hourly:Number($('cHour').value||0),daily:Number($('cDay').value||0)},
-    flags:{agentic:$('fAgent').checked,autoOpen:$('fAutoOpen').checked,overlay:$('fOverlay').checked,vision:$('fVision').checked,risk:$('fRisk').checked},
+    flags:{agentic:$('fAgent').checked,autoOpen:$('fAutoOpen').checked,overlay:$('fOverlay').checked,vision:$('fVision').checked,risk:$('fRisk').checked,autoSend:$('fAutoSend').checked},
     kill:$('fKill').checked, locked:$('fLock').checked
   };
   try{
