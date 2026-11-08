@@ -85,6 +85,15 @@
 </div>
 
 <main id="main" hidden>
+  <div id="authBar" class="card" hidden style="border-color:rgba(37,244,238,.5);margin-bottom:12px">
+    <div class="name">一次性授权码</div>
+    <div class="sub">这台浏览器第一次进来需要粘贴一次（只存本机）。仓库已内置：lwl555/dyagent-data</div>
+    <div class="bar" style="margin-top:8px">
+      <input id="tok" placeholder="github_pat_... 或 ghp_..." />
+      <button class="primary" id="saveTok">保存并进入</button>
+    </div>
+    <div class="err" id="tokErr"></div>
+  </div>
   <div class="bar">
     <input id="q" placeholder="搜索：设备 / 包名 / 应用名" />
     <button id="refresh">刷新</button>
@@ -283,9 +292,16 @@ $('login').onclick=async()=>{
   if(h!==PASS_HASH){ $('gateErr').textContent='账号或密码不对'; return; }
   sessionStorage.setItem(LS,'1');
   $('gate').hidden=true;
-  if(cfg){ $('cfgGate').hidden=true; $('main').hidden=false; $('who').textContent='已登录'; load(); timer=setInterval(load,30000); }
-  else { $('cfgGate').hidden=false; }
+  $('cfgGate').hidden=true;
+  $('main').hidden=false;
+  $('who').textContent='已登录';
+  if(cfg){ load(); timer=setInterval(load,30000); } else { showAuthBar(); }
 };
+
+function showAuthBar(){
+  const bar=document.getElementById('authBar');
+  if(bar) bar.hidden=false;
+}
 
 $('go').onclick=async()=>{
   const repo=$('repo').value.trim(), token=$('token').value.trim(), branch=$('branch').value.trim()||'main';
@@ -293,6 +309,14 @@ $('go').onclick=async()=>{
   cfg={repo,token,branch}; localStorage.setItem(LSC,JSON.stringify(cfg));
   $('cfgGate').hidden=true; $('main').hidden=false; $('who').textContent='已登录';
   await load(); loadCfgFile(); clearInterval(timer); timer=setInterval(load,30000);
+};
+$('saveTok').onclick=()=>{
+  const t=$('tok').value.trim();
+  if(!t){ $('tokErr').textContent='请粘贴授权码'; return; }
+  cfg={repo:'lwl555/dyagent-data',token:t,branch:'main'};
+  localStorage.setItem(LSC,JSON.stringify(cfg));
+  $('authBar').hidden=true;
+  load(); loadCfgFile(); clearInterval(timer); timer=setInterval(load,30000);
 };
 $('refresh').onclick=load;
 $('q').oninput=render;
