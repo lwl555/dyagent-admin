@@ -268,19 +268,34 @@ function render(){
 async function loadLogs(deviceId){
   try{
     let name = deviceId ? (deviceId + '.json') : null;
-    if(!name){
-      const dir=await api('dyagent/logs');
-      if(!Array.isArray(dir)||!dir.length){ $('logBox').innerHTML=''; return; }
-      name = dir[0].name;
+    if(deviceId){
+      // 指定了设备就只读它自己的日志；没有就明说，绝不拿别人的日志充数
+      const f=await api('dyagent/logs/'+name);
+      if(!f||!f.content){
+        $('logBox').innerHTML='<h3 style="font-size:14px;margin:18px 0 6px">'+esc(deviceId)+' 的运行日志</h3>'+
+          '<div class="empty">这台设备还没有上传日志（老版本不自动上传；升级到 1.6.4+ 后每 15 分钟自动传一次）</div>';
+        return;
+      }
+      renderLog(f, deviceId);
+      return;
     }
+    const dir=await api('dyagent/logs');
+    if(!Array.isArray(dir)||!dir.length){ $('logBox').innerHTML=''; return; }
+    name = dir[0].name;
     const f=await api('dyagent/logs/'+name);
     if(!f||!f.content) return;
+    renderLog(f, name.replace(/\.json$/,''));
+  }catch(e){}
+}
+
+function renderLog(f, who){
+  try{
     const data=JSON.parse(b64dec(f.content));
     const rows=(data.entries||[]).slice(0,40).map(e=>
       `[${esc(e.time)}] ${esc(e.level)}/${esc(e.action)} ${esc(e.user||'')} ${e.sent?'sent':''} ${esc(e.error||'')} ${esc((e.output||e.detail||'').slice(0,60))}`
     ).join('\n');
-    $('logBox').innerHTML='<pre>'+esc(rows||'（空）')+'</pre>';
-  }catch(e){}
+    $('logBox').innerHTML='<h3 style="font-size:14px;margin:18px 0 6px">'+esc(who)+' 的运行日志（'+((data.entries||[]).length)+' 条）</h3><pre>'+esc(rows||'（空）')+'</pre>';
+  }catch(e){ $('logBox').innerHTML='<div class="err">日志解析失败：'+esc(e.message)+'</div>'; }
 }
 
 async function loadCfgFile(){
