@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>多答 · 设备面板（GitHub 后端）</title>
+<style>
+  :root{--bg:#0a0a0d;--card:#14141a;--line:#2a2a35;--fg:#e9e9ee;--mut:#8f8f9e;--cyan:#25f4ee;--mag:#fe2c55;--amber:#ffb020;--ok:#38d39f}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 -apple-system,"PingFang SC","Microsoft YaHei",system-ui,sans-serif}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(10,10,13,.92);backdrop-filter:blur(8px)}
+  h1{font-size:17px;margin:0}
+  h1 small{color:var(--mut);font-size:12px;font-weight:400;margin-left:8px}
+  .stat{display:flex;gap:16px;font-size:12px;color:var(--mut)}
+  .stat b{color:var(--cyan);font-size:15px;margin-right:3px}
+  main{max-width:1080px;margin:0 auto;padding:16px 14px 60px}
+  .bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  input,button{font:inherit}
+  input{flex:1;min-width:160px;background:#101015;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:9px 12px}
+  button{background:transparent;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:9px 14px;cursor:pointer}
+  button.primary{background:var(--cyan);color:#00201f;border-color:var(--cyan);font-weight:600}
+  .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px}
+  .card.on{border-color:rgba(37,244,238,.45)}
+  .row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .name{font-size:15px;font-weight:600}
+  .sub{color:var(--mut);font-size:12px}
+  .pill{font-size:11px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mut);white-space:nowrap}
+  .pill.ok{color:var(--ok);border-color:rgba(56,211,159,.5)}
+  .pill.warn{color:var(--amber);border-color:rgba(255,176,32,.5)}
+  .pill.bad{color:var(--mag);border-color:rgba(254,44,85,.5)}
+  .kv{display:grid;grid-template-columns:84px 1fr;gap:2px 8px;font-size:12px;margin-top:10px}
+  .kv span:nth-child(odd){color:var(--mut)}
+  .apps{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+  .apps summary{cursor:pointer;font-size:12px;color:var(--mut)}
+  .applist{max-height:180px;overflow:auto;margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
+  .applist span{font-size:11px;background:#101015;border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:#c9c9d6}
+  .empty{text-align:center;color:var(--mut);padding:40px 10px}
+  .gate{max-width:440px;margin:10vh auto;padding:20px}
+  .gate h2{margin:0 0 6px;font-size:18px}
+  .err{color:var(--mag);font-size:12px;margin-top:8px;min-height:16px}
+  a{color:var(--cyan)}
+  .foot{color:var(--mut);font-size:11px;margin-top:18px;line-height:1.7}
+  pre{background:#101015;border:1px solid var(--line);border-radius:10px;padding:10px;overflow:auto;font-size:11px;max-height:260px}
+</style>
+</head>
+<body>
+<header>
+  <h1>多答 · 设备面板 <small>github backend</small></h1>
+  <div class="stat">
+    <div><b id="nDev">0</b>台设备</div>
+    <div><b id="nOn">0</b>在线</div>
+  </div>
+</header>
+
+<div class="gate" id="gate">
+  <h2>连上你的私有仓库</h2>
+  <div class="sub">只需要一个「只读」token。它只存在你这台浏览器里。</div>
+  <p><input id="repo" placeholder="owner/repo（私有仓库）" /></p>
+  <p><input id="token" placeholder="GitHub token（该仓库 Contents: Read）" /></p>
+  <p><input id="branch" placeholder="分支，默认 main" value="main" /></p>
+  <p><button class="primary" id="go">进入面板</button></p>
+  <div class="err" id="gateErr"></div>
+  <div class="foot">
+    手机端会往这个仓库写 <code>duoda/devices/*.json</code> 与 <code>duoda/logs/*.json</code>。
+    仓库必须是私有的，否则设备信息与日志等于公开。
+  </div>
+</div>
+
+<main id="main" hidden>
+  <div class="bar">
+    <input id="q" placeholder="搜索：设备 / 包名 / 应用名" />
+    <button id="refresh">刷新</button>
+    <button id="reset">改配置</button>
+  </div>
+  <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden>仓库里还没有设备文件。手机端：设置 → 作者面板 →「上报设备到 GitHub」。</div>
+  <div id="logBox"></div>
+  <div class="card" id="cfgBox" hidden style="margin-top:18px">
+    <h2 style="font-size:15px;margin:0 0 10px">远程配置 / 更新推送（写 duoda/config.json，一次覆盖所有平台账号）</h2>
+    <div class="kv" style="grid-template-columns:120px 1fr">
+      <span>公告</span><span><input id="cAnn" style="width:100%" /></span>
+      <span>全局人设</span><span><textarea id="cPrompt" rows="4" style="width:100%"></textarea></span>
+      <span>模型名</span><span><input id="cModel" style="width:100%" placeholder="留空=不改" /></span>
+      <span>限额（AI日/单人日/小时/每天/冷却分）</span><span>
+        <input id="cAi" style="width:70px" /> <input id="cPerUser" style="width:70px" />
+        <input id="cHourly" style="width:70px" /> <input id="cDaily" style="width:70px" />
+        <input id="cCooldown" style="width:70px" /></span>
+      <span>开关</span><span>
+        <label><input type="checkbox" id="cAutoSend" /> 全自动</label>
+        <label><input type="checkbox" id="cAutoOpen" /> 自动打开目标App</label>
+        <label><input type="checkbox" id="cOverlay" /> 浮标</label>
+        <label><input type="checkbox" id="cVision" /> 截图</label>
+        <label><input type="checkbox" id="cRisk" /> 本地词表</label>
+        <label><input type="checkbox" id="cSkipGroups" /> 跳过群聊</label></span>
+      <span>远程停用</span><span><label><input type="checkbox" id="cKill" /> 急停（App 端不能自行解除）</label></span>
+      <span>更新推送</span><span>
+        版本 <input id="cVer" style="width:90px" placeholder="0.2.0" />
+        APK <input id="cApk" style="width:100%" placeholder="https://.../duoda-0.2.0.apk" /></span>
+      <span>更新说明</span><span><input id="cNotes" style="width:100%" /></span>
+      <span>推送范围</span><span><input id="cTargets" style="width:100%" placeholder="设备ID，逗号分隔；留空=全部设备" /></span>
+    </div>
+    <div style="margin-top:10px"><button class="primary" id="pubCfg">发布配置</button>
+      <button id="reloadCfg">读取当前配置</button> <span class="sub" id="cfgMsg"></span></div>
+  </div>
+  <div style="margin-top:16px"><button id="toggleCfg">远程配置 / 更新推送</button></div>
+
+  <div class="foot" id="foot"></div>
+</main>
+
+<script>
+const LS='duoda.gh';
+const $=id=>document.getElementById(id);
+let cfg=JSON.parse(localStorage.getItem(LS)||'null'), devices=[], timer=null;
+
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=ts=>{ if(!ts) return '—'; const d=new Date(ts), s=(Date.now()-d)/1000;
+  if(s<90) return Math.round(s)+' 秒前'; if(s<5400) return Math.round(s/60)+' 分钟前';
+  if(s<172800) return Math.round(s/3600)+' 小时前'; return d.toLocaleString('zh-CN'); };
+
+async function api(path){
+  const r=await fetch('https://api.github.com/repos/'+cfg.repo+'/contents/'+path+'?ref='+encodeURIComponent(cfg.branch),{
+    headers:{'Authorization':'Bearer '+cfg.token,'Accept':'application/vnd.github+json'}
+  });
+  if(r.status===404) return null;
+  if(!r.ok) throw new Error('GitHub '+r.status+' '+(await r.text()).slice(0,120));
+  return r.json();
+}
+const b64dec=s=>decodeURIComponent(escape(atob(s.replace(/\n/g,''))));
+
+async function load(){
+  if(!cfg) return;
+  try{
+    const dir=await api('duoda/devices');
+    devices=[];
+    if(Array.isArray(dir)){
+      for(const f of dir){
+        if(!f.name.endsWith('.json')) continue;
+        const file=await api('duoda/devices/'+f.name);
+        if(file && file.content){ try{ devices.push(JSON.parse(b64dec(file.content))); }catch(e){} }
+      }
+    }
+    render();
+  }catch(e){ $('foot').innerHTML='<span style="color:#fe2c55">拉取失败：'+esc(e.message)+'</span>'; }
+}
+
+function render(){
+  const q=$('q').value.trim().toLowerCase();
+  const list=devices.filter(d=>!q||[d.model,d.brand,d.device_id,(d.apps||[]).map(a=>a.name+' '+a.pkg).join(' ')].join(' ').toLowerCase().includes(q));
+  $('nDev').textContent=devices.length;
+  $('nOn').textContent=devices.filter(d=>d.updated_at&&(Date.now()-d.updated_at<300000)).length;
+
+  $('grid').innerHTML=list.map(d=>{
+    const a=d.agent||{}, fresh=d.updated_at && (Date.now()-d.updated_at<300000);
+    const loc = (d.lat&&d.lng) ? `<a target="_blank" rel="noreferrer" href="https://uri.amap.com/marker?position=${d.lng},${d.lat}">${(+d.lat).toFixed(5)}, ${(+d.lng).toFixed(5)}</a>` : '<span class="sub">未授权/无位置</span>';
+    const apps=(d.apps||[]).map(x=>`<span title="${esc(x.pkg)}">${esc(x.name)}</span>`).join('');
+    const accs=(d.accounts||[]);
+    const accChips=accs.length?accs.map(function(x){return '<span class="pill'+(x.enabled?'':'')+'" title="'+esc(x.pkg||'')+'">'+esc(x.label||x.platform)+(x.send_mode==='draft'?' · 草稿':'')+'</span>';}).join(''):'';
+    return `<div class="card ${fresh?'on':''}">
+      <div class="row"><div><div class="name">${esc(d.model||'未知机型')}</div>
+        <div class="sub">${esc(d.brand||'')} · Android ${esc(d.android||'')} · ${esc(d.abi||'')}</div></div>
+        <span class="pill ${fresh?'ok':'warn'}">${fmt(d.updated_at)}</span></div>
+      <div class="row" style="margin-top:8px">
+        <span class="pill ${a.enabled?'ok':''}">${a.enabled?'运行中':'未启用'}</span>
+        <span class="pill ${a.a11y?'ok':'bad'}">无障碍${a.a11y?'已连接':'断开'}</span>
+        <span class="pill ${a.auto_send?'warn':''}">${a.auto_send?'全自动':'审批'}</span>
+        ${a.kill?'<span class="pill bad">已急停</span>':''}
+        <span class="pill">${esc(d.app_version||'')}</span></div>
+      <div class="kv">
+        <span>平台/账号</span><span>${accChips||'<span class="sub">未配置</span>'} ${d.auto_greet?'<span class="pill">自动打招呼</span>':''}</span>
+        <span>今日回复</span><span>${a.today_sent??0} 条</span>
+        <span>模型</span><span>${esc(a.backend||'')} / ${esc(a.model||'')}</span>
+        <span>位置</span><span>${loc} <span class="sub">${esc(d.satellites>=0?('卫星 '+d.satellites):'')}</span></span>
+        <span>设备 ID</span><span>${esc(d.device_id)}</span>
+      </div>
+      <details class="apps"><summary>已装应用 ${d.apps_count??(d.apps||[]).length} 个</summary>
+        <div class="applist">${apps||'<span class="sub">无数据</span>'}</div></details>
+    </div>`;
+  }).join('');
+  $('empty').hidden=list.length>0;
+  $('foot').textContent='每 30 秒自动刷新 · 最后更新 '+new Date().toLocaleTimeString('zh-CN');
+  loadLogs();
+}
+
+async function loadLogs(){
+  try{
+    const dir=await api('duoda/logs');
+    if(!Array.isArray(dir)||!dir.length){ $('logBox').innerHTML=''; return; }
+    const f=await api('duoda/logs/'+dir[0].name);
+    if(!f||!f.content) return;
+    const data=JSON.parse(b64dec(f.content));
+    const rows=(data.entries||[]).slice(0,40).map(e=>
+      `[${esc(e.time)}] ${esc(e.level)}/${esc(e.action)} ${esc(e.user||'')} ${e.sent?'sent':''} ${esc(e.error||'')} ${esc((e.output||e.detail||'').slice(0,60))}`
+    ).join('\n');
+    $('logBox').innerHTML='<h3 style="font-size:14px;margin:18px 0 6px">最近运行日志</h3><pre>'+esc(rows||'（空）')+'</pre>';
+  }catch(e){}
+}
+
+$('go').onclick=async()=>{
+  const repo=$('repo').value.trim(), token=$('token').value.trim(), branch=$('branch').value.trim()||'main';
+  if(!repo.includes('/')||!token){ $('gateErr').textContent='仓库写成 owner/repo，token 必填'; return; }
+  cfg={repo,token,branch}; localStorage.setItem(LS,JSON.stringify(cfg));
+  $('gate').hidden=true; $('main').hidden=false;
+  await load(); clearInterval(timer); timer=setInterval(load,30000);
+};
+$('refresh').onclick=load;
+$('q').oninput=render;
+$('reset').onclick=()=>{ localStorage.removeItem(LS); location.reload(); };
+
+if(cfg){ $('gate').hidden=true; $('main').hidden=false; load(); timer=setInterval(load,30000); }
+
+// ---------------- 远程配置 / 更新推送 ----------------
+async function putFile(path, text, message){
+  const base='https://api.github.com/repos/'+cfg.repo+'/contents/'+path;
+  let sha=null;
+  try{
+    const r=await fetch(base+'?ref='+encodeURIComponent(cfg.branch),{headers:{Authorization:'Bearer '+cfg.token,'Accept':'application/vnd.github+json'}});
+    if(r.ok){ sha=(await r.json()).sha; }
+  }catch(e){}
+  const body={message:message, branch:cfg.branch, content:btoa(unescape(encodeURIComponent(text)))};
+  if(sha) body.sha=sha;
+  const r=await fetch(base,{method:'PUT',headers:{Authorization:'Bearer '+cfg.token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error('HTTP '+r.status+' '+(await r.text()).slice(0,140));
+  return r.json();
+}
+
+async function loadCfg(){
+  $('cfgMsg').textContent='读取中…';
+  try{
+    const j=await api('duoda/config.json');
+    const c=JSON.parse(j.content ? b64dec(j.content) : '{}');
+    $('cAnn').value=c.announcement||'';
+    $('cPrompt').value=c.prompt||'';
+    $('cModel').value=c.model||'';
+    const caps=c.caps||{}, flags=c.flags||{};
+    $('cAi').value=caps.aiDaily??''; $('cPerUser').value=caps.perUserDaily??'';
+    $('cHourly').value=caps.hourly??''; $('cDaily').value=caps.daily??''; $('cCooldown').value=caps.cooldownMin??'';
+    $('cAutoSend').checked=!!flags.autoSend; $('cAutoOpen').checked=!!flags.autoOpen;
+    $('cOverlay').checked=!!flags.overlay; $('cVision').checked=!!flags.vision;
+    $('cRisk').checked=!!flags.risk; $('cSkipGroups').checked=!!flags.skipGroups;
+    $('cKill').checked=!!c.kill;
+    $('cVer').value=c.latestVersion||''; $('cApk').value=c.apkUrl||''; $('cNotes').value=c.releaseNotes||'';
+    $('cTargets').value=(c.updateTargets||[]).join(',');
+    $('cfgMsg').textContent='当前版本 v'+(c.version||0)+'；改完点发布';
+  }catch(e){ $('cfgMsg').textContent='还没有 duoda/config.json（首次发布会新建）'; }
+}
+
+async function publishCfg(){
+  if(!cfg){ alert('先连上仓库'); return; }
+  $('pubCfg').disabled=true; $('cfgMsg').textContent='发布中…';
+  try{
+    let cur={};
+    try{ const j=await api('duoda/config.json'); cur=JSON.parse(b64dec(j.content)); }catch(e){}
+    const num=v=>v===''?undefined:Number(v);
+    const out={
+      version:(cur.version||0)+1,
+      announcement:$('cAnn').value,
+      prompt:$('cPrompt').value,
+      model:$('cModel').value||cur.model||'',
+      caps:{
+        aiDaily:num($('cAi').value)??cur.caps?.aiDaily,
+        perUserDaily:num($('cPerUser').value)??cur.caps?.perUserDaily,
+        hourly:num($('cHourly').value)??cur.caps?.hourly,
+        daily:num($('cDaily').value)??cur.caps?.daily,
+        cooldownMin:num($('cCooldown').value)??cur.caps?.cooldownMin
+      },
+      flags:{
+        autoSend:$('cAutoSend').checked, autoOpen:$('cAutoOpen').checked,
+        overlay:$('cOverlay').checked, vision:$('cVision').checked,
+        risk:$('cRisk').checked, skipGroups:$('cSkipGroups').checked,
+        agentic:true
+      },
+      kill:$('cKill').checked,
+      latestVersion:$('cVer').value||cur.latestVersion||'',
+      apkUrl:$('cApk').value||cur.apkUrl||'',
+      releaseNotes:$('cNotes').value||cur.releaseNotes||'',
+      updateTargets:$('cTargets').value.split(',').map(s=>s.trim()).filter(Boolean)
+    };
+    const json=JSON.stringify(out,null,1);
+    await putFile('duoda/config.json', json, 'duoda: 发布配置 v'+out.version);
+    $('cfgMsg').textContent='已发布 v'+out.version+'（App 端下次拉取生效，改内容才会应用）';
+  }catch(e){ $('cfgMsg').textContent='发布失败：'+e.message; }
+  finally{ $('pubCfg').disabled=false; }
+}
+$('toggleCfg').onclick=()=>{ const b=$('cfgBox'); b.hidden=!b.hidden; if(!b.hidden) loadCfg(); };
+$('reloadCfg').onclick=loadCfg;
+$('pubCfg').onclick=publishCfg;
+if(location.hash==='#cfg'){ $('cfgBox').hidden=false; loadCfg(); }
+
+</script>
+</body>
+</html>
