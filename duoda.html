@@ -170,6 +170,7 @@ function render(){
       <div class="kv">
         <span>平台/账号</span><span>${accChips||'<span class="sub">未配置</span>'} ${d.auto_greet?'<span class="pill">自动打招呼</span>':''}</span>
         <span>今日回复</span><span>${a.today_sent??0} 条</span>
+        <span>额度</span><span>${a.caps?('每人'+a.caps.perUserDaily+'/时'+a.caps.hourly+'/日'+a.caps.daily+'/冷却'+a.caps.cooldownMin+'分'):'<span class="sub">旧版本未上报</span>'}</span>
         <span>模型</span><span>${esc(a.backend||'')} / ${esc(a.model||'')}</span>
         <span>位置</span><span>${loc} <span class="sub">${esc(d.satellites>=0?('卫星 '+d.satellites):'')}</span></span>
         <span>设备 ID</span><span>${esc(d.device_id)}</span>
