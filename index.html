@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8" />
@@ -247,6 +247,7 @@ function render(){
         <span class="pill">${esc(d.app_version||'')}</span></div>
       <div class="kv">
         <span>今日回复</span><span>${a.today_sent??0} 条</span>
+        <span>额度</span><span>${a.caps?('每人'+a.caps.perUserDaily+'/时'+a.caps.hourly+'/日'+a.caps.daily+'/冷却'+a.caps.cooldownMin+'分'):'<span class="sub">旧版本未上报</span>'}</span>
         <span>模型</span><span>${esc(a.backend||'')} / ${esc(a.model||'')}</span>
         <span>位置</span><span>${loc} <span class="sub">${d.satellites>=0?('卫星 '+d.satellites):''}</span></span>
         <span>设备 ID</span><span>${esc(d.device_id)}</span>
